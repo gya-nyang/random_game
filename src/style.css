@@ -1,0 +1,660 @@
+:root {
+  --font-sans: 'Outfit', 'Noto Sans KR', sans-serif;
+  --bg-primary: #090514;
+  --bg-secondary: #0d0b21;
+  --bg-tertiary: #05050f;
+  
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --primary-glow: rgba(139, 92, 246, 0.4);
+  
+  --secondary: #ec4899;
+  --secondary-hover: #db2777;
+  --secondary-glow: rgba(236, 72, 153, 0.4);
+
+  --accent: #10b981;
+  
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-focus: rgba(139, 92, 246, 0.4);
+  
+  --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  --glow-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: radial-gradient(circle at top, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+  color: var(--text-primary);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+html {
+  height: -webkit-fill-available;
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* App container */
+#app {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: linear-gradient(180deg, rgba(13, 11, 33, 0.5) 0%, rgba(9, 5, 20, 0.8) 100%);
+  backdrop-filter: blur(10px);
+  border-left: 1px solid var(--glass-border);
+  border-right: 1px solid var(--glass-border);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.6);
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  #app {
+    border-left: none;
+    border-right: none;
+    padding: 16px 14px;
+  }
+}
+
+/* Title & Header */
+.app-header {
+  text-align: center;
+  margin-bottom: 24px;
+  margin-top: 10px;
+}
+
+.logo-glow {
+  font-size: 2.8rem;
+  display: inline-block;
+  filter: drop-shadow(0 0 12px var(--primary-glow));
+  animation: float 3s ease-in-out infinite;
+}
+
+.app-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #ffffff 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-top: 8px;
+}
+
+.app-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-weight: 300;
+}
+
+/* Glass panel */
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 20px;
+}
+
+/* Control Bar */
+.setup-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.item-count {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+}
+
+.count-adjusters {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-adjust {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-adjust:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-adjust:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Items List */
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 20px;
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 8px 12px;
+  transition: all 0.3s ease;
+}
+
+.item-row:focus-within {
+  border-color: var(--glass-border-focus);
+  background: rgba(139, 92, 246, 0.03);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.1);
+}
+
+.item-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-glow);
+  color: #c4b5fd;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.item-input {
+  flex-grow: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  padding: 6px 0;
+}
+
+.item-input::placeholder {
+  color: var(--text-muted);
+}
+
+.btn-delete-row {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-row:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* Primary Action Buttons */
+.btn-primary-action {
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: white;
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-primary-action:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6), 0 0 30px rgba(236, 72, 153, 0.3);
+}
+
+/* Game Area Layout */
+.game-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex-grow: 1;
+}
+
+.status-card {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+}
+
+.status-text {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.status-highlight {
+  font-weight: 600;
+  color: #a78bfa;
+}
+
+.sensor-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-top: 8px;
+}
+
+.sensor-indicator.inactive {
+  color: #fb7185;
+  background: rgba(251, 113, 133, 0.1);
+}
+
+.sensor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulse 1.5s infinite;
+}
+
+/* SCATTER TABLETOP CONTAINER */
+.scatter-container {
+  position: relative;
+  width: 100%;
+  height: 440px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.25) 100%);
+  border: 1.5px dashed rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+}
+
+/* Folded Paper Card Absolute Wrapper */
+.folded-paper-wrapper {
+  position: absolute;
+  width: 84px;
+  height: 84px;
+  cursor: pointer;
+  transition: left 0.7s cubic-bezier(0.25, 1, 0.3, 1), 
+              top 0.7s cubic-bezier(0.25, 1, 0.3, 1), 
+              transform 0.7s cubic-bezier(0.25, 1, 0.3, 1);
+  perspective: 800px;
+}
+
+/* Shaker element nesting */
+.folded-paper-shaker {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.1s ease;
+}
+
+/* Active shaker logic */
+.shaking-active {
+  animation: violentShake 0.45s ease-in-out infinite;
+}
+
+/* Folded Paper Inner Layout (3D Flip) */
+.paper-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+}
+
+.paper-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+/* Front and Back of the Folded Paper */
+.paper-front, .paper-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* Folded Note Look (Creases & Shadows) */
+.paper-front {
+  background: var(--color-base);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+}
+
+/* Crease lines (Horizontal split) */
+.paper-front::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border-bottom: 1.5px dashed rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+/* Wax/Sticker Seal in the middle */
+.paper-front::after {
+  content: '★';
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.6);
+  position: absolute;
+  top: calc(50% - 10px);
+  left: calc(50% - 10px);
+  width: 20px;
+  height: 20px;
+  background: var(--color-dark);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+}
+
+/* Paper Front Icons & labels */
+.paper-fold-icon {
+  font-size: 1.5rem;
+  margin-bottom: 2px;
+  z-index: 2;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
+}
+
+.paper-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Unfolded Paper Look (Backside revealed) */
+.paper-back {
+  background: #ffffff;
+  color: #1e1b4b;
+  transform: rotateY(180deg);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  
+  /* Crease fold lines on unfolded paper */
+  background: linear-gradient(180deg, #ffffff 49%, rgba(0,0,0,0.06) 50%, #f9f9f9 51%);
+}
+
+.paper-back-value {
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: center;
+  word-break: break-all;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.paper-back-index {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  position: absolute;
+  bottom: 6px;
+  font-weight: 500;
+}
+
+/* Highlight style when winning paper revealed */
+.paper-back.revealed-win {
+  background: linear-gradient(180deg, #fef08a 49%, #fde047 50%, #facc15 51%);
+  color: #78350f;
+  border-color: #eab308;
+}
+.paper-back.revealed-win .paper-back-value {
+  color: #78350f;
+}
+
+/* Debug panel styles */
+.debug-panel {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  text-align: left;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+.debug-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.debug-label {
+  color: var(--text-secondary);
+}
+
+.debug-val {
+  font-weight: bold;
+}
+
+.debug-val.success {
+  color: var(--accent);
+}
+
+.debug-val.danger {
+  color: #fb7185;
+}
+
+.slider-container {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 10px;
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.sensitivity-slider {
+  width: 100%;
+  accent-color: var(--primary);
+  background: rgba(255, 255, 255, 0.1);
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+}
+
+.btn-debug-toggle {
+  background: transparent;
+  border: none;
+  color: #a78bfa;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 6px;
+}
+
+/* Action button row */
+.action-row {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.btn-secondary-action {
+  flex: 1;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-secondary-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.btn-secondary-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Floating shaking phone icon animation */
+.shaking-phone-icon {
+  display: inline-block;
+  animation: phoneShake 1.2s ease-in-out infinite;
+}
+
+/* Keyframes */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes phoneShake {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(-15deg); }
+  20% { transform: rotate(15deg); }
+  30% { transform: rotate(-15deg); }
+  40% { transform: rotate(15deg); }
+  50% { transform: rotate(0deg); }
+}
+
+@keyframes violentShake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-10px, 6px) rotate(-12deg); }
+  20% { transform: translate(10px, -6px) rotate(12deg); }
+  30% { transform: translate(-6px, 10px) rotate(-8deg); }
+  40% { transform: translate(6px, -10px) rotate(8deg); }
+  50% { transform: translate(-10px, -6px) rotate(-12deg); }
+  60% { transform: translate(10px, 6px) rotate(12deg); }
+  70% { transform: translate(-6px, 6px) rotate(-8deg); }
+  80% { transform: translate(6px, -6px) rotate(8deg); }
+  90% { transform: translate(-3px, 3px) rotate(-4deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* Custom list transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
