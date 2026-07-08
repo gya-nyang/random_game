@@ -320,6 +320,7 @@ html {
   padding: 4px 10px;
   border-radius: 20px;
   margin-top: 8px;
+  transition: all 0.3s ease;
 }
 
 .sensor-indicator.inactive {
@@ -327,11 +328,19 @@ html {
   background: rgba(251, 113, 133, 0.1);
 }
 
+.sensor-indicator.cooldown {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
 .sensor-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background-color: currentColor;
+}
+
+.sensor-dot.pulse {
   animation: pulse 1.5s infinite;
 }
 

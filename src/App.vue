@@ -6,6 +6,7 @@ const gameState = ref('setup') // 'setup' | 'play'
 const items = ref(['당첨 🎉', '꽝 😢', '꽝 😢', '커피 쏘기 ☕'])
 const cards = ref([])
 const shuffling = ref(false)
+const isCooldown = ref(false)
 const itemInputs = ref([])
 
 // 2. Shake & Sensor Detection State
@@ -14,14 +15,14 @@ const lastX = ref(0)
 const lastY = ref(0)
 const lastZ = ref(0)
 const lastUpdate = ref(0)
-let shakeTimer = null
+let cooldownTimer = null
 
 // 3. Sensor Debug State
 const isSecure = ref(window.isSecureContext)
 const hasMotionEvent = ref(typeof window.DeviceMotionEvent !== 'undefined')
 const eventCount = ref(0)
 const currentSpeed = ref(0)
-const shakeThreshold = ref(700) // Adjustable threshold
+const shakeThreshold = ref(950) // Increased default (less sensitive)
 const showDebug = ref(false)
 
 // 4. Color Palettes (Folded Paper colors)
@@ -175,7 +176,6 @@ const generateRandomPositions = () => {
     const baseLeft = zone.c * zoneWidth
     const baseTop = zone.r * zoneHeight
     
-    // Add random offset inside zone
     const offsetLeft = Math.random() * (zoneWidth - 20)
     const offsetTop = Math.random() * (zoneHeight - 20)
     
@@ -192,17 +192,20 @@ const generateRandomPositions = () => {
   })
 }
 
-// 8. Manual & Event-based Shuffling triggers
+// 8. Shuffling Action with Cooldown Lock
 const triggerShuffle = () => {
-  if (shuffling.value) return
+  if (shuffling.value || isCooldown.value) return
   
   shuffling.value = true
+  isCooldown.value = true
+  
   playSound('shake')
   if (navigator.vibrate) navigator.vibrate(80)
   
-  // Close all notes face down
+  // Fold all notes face down
   cards.value = cards.value.map(card => ({ ...card, revealed: false }))
   
+  // Shuffling animation finishes in 800ms
   setTimeout(() => {
     const values = cards.value.map(c => c.value)
     const shuffledValues = shuffleArray(values)
@@ -216,11 +219,18 @@ const triggerShuffle = () => {
     shuffling.value = false
     playSound('shuffle')
   }, 800)
+
+  // Hold sensor block for 1.8 seconds total to prevent continuous accidental triggers
+  if (cooldownTimer) clearTimeout(cooldownTimer)
+  cooldownTimer = setTimeout(() => {
+    isCooldown.value = false
+  }, 1800)
 }
 
-// 9. Motion Sensor Events with Throttled Shake Delta
+// 9. Motion Sensor Events
 const handleMotion = (event) => {
-  if (gameState.value !== 'play') return
+  // Lock events immediately during shuffle or cooldown to save calculation cost
+  if (gameState.value !== 'play' || shuffling.value || isCooldown.value) return
   eventCount.value++
 
   const acc = event.accelerationIncludingGravity || event.acceleration
@@ -232,44 +242,19 @@ const handleMotion = (event) => {
   const currentTime = Date.now()
   const diffTime = currentTime - lastUpdate.value
 
-  // Check every 80ms to accumulate change correctly (bypasses high refresh rates frame-delta issue)
+  // Check every 80ms to accumulate change correctly
   if (diffTime > 80) {
     if (lastUpdate.value !== 0) {
-      // Calculate delta of each axis independently to prevent cancellation
       const deltaX = Math.abs(x - lastX.value)
       const deltaY = Math.abs(y - lastY.value)
       const deltaZ = Math.abs(z - lastZ.value)
       
-      // Speed = delta magnitude over time
       const speed = (deltaX + deltaY + deltaZ) / diffTime * 10000
       currentSpeed.value = Math.round(speed)
 
-      // Trigger shake when speed exceeds sensitivity threshold
+      // Trigger shake when speed exceeds threshold
       if (speed > shakeThreshold.value) {
-        shuffling.value = true
-        
-        if (navigator.vibrate) navigator.vibrate(45)
-        playSound('shake')
-        
-        // Fold all papers face-down immediately
-        cards.value = cards.value.map(card => ({ ...card, revealed: false }))
-
-        // Reset the timeout to extend shake duration on continuous motion
-        if (shakeTimer) clearTimeout(shakeTimer)
-
-        shakeTimer = setTimeout(() => {
-          const values = cards.value.map(c => c.value)
-          const shuffledValues = shuffleArray(values)
-          
-          cards.value = cards.value.map((card, idx) => ({
-            ...card,
-            value: shuffledValues[idx]
-          }))
-          
-          generateRandomPositions()
-          shuffling.value = false
-          playSound('shuffle')
-        }, 800)
+        triggerShuffle()
       }
     }
 
@@ -282,7 +267,6 @@ const handleMotion = (event) => {
 
 // 10. Sensor Permission request
 const requestSensorPermission = async () => {
-  // Update secure context and motion support checks dynamically
   isSecure.value = window.isSecureContext
   hasMotionEvent.value = typeof window.DeviceMotionEvent !== 'undefined'
 
@@ -303,11 +287,9 @@ const requestSensorPermission = async () => {
       hasSensorPermission.value = false
     }
   } else if (typeof DeviceMotionEvent !== 'undefined') {
-    // Android / Desktop where permission is implicit
     window.addEventListener('devicemotion', handleMotion)
     hasSensorPermission.value = true
   } else {
-    // DeviceMotionEvent is completely blocked or unsupported
     hasSensorPermission.value = false
   }
 }
@@ -339,6 +321,7 @@ const startGame = async () => {
   eventCount.value = 0
   currentSpeed.value = 0
   lastUpdate.value = 0
+  isCooldown.value = false
   
   generateRandomPositions()
   await requestSensorPermission()
@@ -348,7 +331,7 @@ const startGame = async () => {
 // 12. Stop Sensors
 const stopShake = () => {
   window.removeEventListener('devicemotion', handleMotion)
-  if (shakeTimer) clearTimeout(shakeTimer)
+  if (cooldownTimer) clearTimeout(cooldownTimer)
   lastX.value = 0
   lastY.value = 0
   lastZ.value = 0
@@ -393,7 +376,6 @@ onUnmounted(() => {
 
   <!-- SETUP SCREEN -->
   <main v-if="gameState === 'setup'" class="setup-area">
-    <!-- HTTPS Caution warning for users using standard HTTP on mobile browsers -->
     <div v-if="!isSecure" class="glass-panel" style="border-color: #fb7185; background: rgba(251, 113, 133, 0.05); margin-bottom: 12px; padding: 12px 16px;">
       <p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.45;">
         ⚠️ <strong>HTTP 접속 알림</strong>: 모바일 브라우저의 보안 정책으로 인해 HTTP 접속 환경에서는 흔들기 센서 기능이 차단될 수 있습니다. 센서 작동을 위해서는 <strong>HTTPS</strong> 또는 로컬 <strong>localhost</strong>를 통해 연결해 주시기 바랍니다.
@@ -478,11 +460,12 @@ onUnmounted(() => {
       <!-- Sensor Status Banner -->
       <div 
         class="sensor-indicator" 
-        :class="{ inactive: hasSensorPermission === false }"
+        :class="{ inactive: hasSensorPermission === false, cooldown: isCooldown }"
       >
-        <span class="sensor-dot"></span>
+        <span class="sensor-dot" :class="{ pulse: !isCooldown && hasSensorPermission === true }"></span>
         <span v-if="hasSensorPermission === true">
-          <span class="shaking-phone-icon">📱</span> 스마트폰을 흔들면 제비가 섞입니다
+          <span v-if="isCooldown">⏳ 셔플 완료! 정렬 대기 중...</span>
+          <span v-else><span class="shaking-phone-icon">📱</span> 흔들면 제비가 섞입니다</span>
         </span>
         <span v-else>
           ⚠️ 흔들기 센서 비활성 (우측 섞기 버튼 사용)
@@ -521,6 +504,12 @@ onUnmounted(() => {
           </span>
         </div>
         <div class="debug-row">
+          <span class="debug-label">셔플 잠금 상태 (쿨다운):</span>
+          <span class="debug-val" :class="isCooldown ? 'danger' : 'success'">
+            {{ isCooldown ? '대기 중 (차단)' : '흔들기 가능 (대기)' }}
+          </span>
+        </div>
+        <div class="debug-row">
           <span class="debug-label">실시간 수신된 센서 패킷:</span>
           <span class="debug-val">{{ eventCount }}회 수신</span>
         </div>
@@ -534,13 +523,13 @@ onUnmounted(() => {
         <div class="slider-container">
           <div class="slider-label">
             <span>흔들기 감지 감도 조절:</span>
-            <span>{{ shakeThreshold }} (낮을수록 민감)</span>
+            <span>{{ shakeThreshold }} (높을수록 무덤덤함)</span>
           </div>
           <input 
             v-model.number="shakeThreshold" 
             type="range" 
-            min="200" 
-            max="2000" 
+            min="300" 
+            max="2500" 
             step="50" 
             class="sensitivity-slider"
           />
@@ -610,7 +599,7 @@ onUnmounted(() => {
         type="button" 
         class="btn-secondary-action" 
         @click="triggerShuffle"
-        :disabled="shuffling"
+        :disabled="shuffling || isCooldown"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         <span>다시 섞기</span>
