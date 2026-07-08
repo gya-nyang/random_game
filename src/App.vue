@@ -22,7 +22,7 @@ const isSecure = ref(window.isSecureContext)
 const hasMotionEvent = ref(typeof window.DeviceMotionEvent !== 'undefined')
 const eventCount = ref(0)
 const currentSpeed = ref(0)
-const shakeThreshold = ref(950) // Increased default (less sensitive)
+const shakeThreshold = ref(1200) // Increased to 1200 for a much firmer deliberate shake
 const showDebug = ref(false)
 
 // 4. Color Palettes (Folded Paper colors)
@@ -220,16 +220,15 @@ const triggerShuffle = () => {
     playSound('shuffle')
   }, 800)
 
-  // Hold sensor block for 1.8 seconds total to prevent continuous accidental triggers
+  // Hold sensor block for 1.2 seconds total to prevent continuous accidental triggers
   if (cooldownTimer) clearTimeout(cooldownTimer)
   cooldownTimer = setTimeout(() => {
     isCooldown.value = false
-  }, 1800)
+  }, 1200)
 }
 
 // 9. Motion Sensor Events
 const handleMotion = (event) => {
-  // Lock events immediately during shuffle or cooldown to save calculation cost
   if (gameState.value !== 'play' || shuffling.value || isCooldown.value) return
   eventCount.value++
 
