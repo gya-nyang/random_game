@@ -69,16 +69,350 @@ const handleInput = (index, value) => {
 const onStart = () => {
   emit('start')
 }
+
+// ==========================================
+// 🎙️ Speech Recognition & 🪄 Gemini AI State
+// ==========================================
+const aiPrompt = ref('')
+const apiKey = ref(localStorage.getItem('gemini_api_key') || '')
+const showApiKeyInput = ref(!apiKey.value)
+const isGeneratingAI = ref(false)
+const aiStatusMessage = ref('')
+const aiStatusType = ref('') // 'success' | 'error' | 'info'
+
+const isListening = ref(false)
+const listeningTarget = ref(null) // 'prompt' | number (row index)
+let recognition = null
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition()
+  recognition.continuous = false
+  recognition.lang = 'ko-KR'
+  recognition.interimResults = false
+  
+  recognition.onstart = () => {
+    isListening.value = true
+    playSound('shake')
+  }
+  
+  recognition.onend = () => {
+    isListening.value = false
+    listeningTarget.value = null
+  }
+  
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript
+    if (listeningTarget.value === 'prompt') {
+      aiPrompt.value = transcript
+    } else if (typeof listeningTarget.value === 'number') {
+      handleInput(listeningTarget.value, transcript)
+    }
+    playSound('flip')
+  }
+  
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error)
+    isListening.value = false
+    listeningTarget.value = null
+    alert(`음성 인식 오류: ${event.error}`)
+  }
+}
+
+const toggleSpeech = (target) => {
+  if (!SpeechRecognition) {
+    alert('이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 또는 Safari 브라우저를 사용해 주세요.')
+    return
+  }
+  
+  if (isListening.value) {
+    recognition.stop()
+    if (listeningTarget.value === target) {
+      return
+    }
+  }
+  
+  listeningTarget.value = target
+  try {
+    recognition.start()
+  } catch (err) {
+    console.error('Speech recognition start failed:', err)
+  }
+}
+
+const saveApiKey = () => {
+  localStorage.setItem('gemini_api_key', apiKey.value)
+  showApiKeyInput.value = false
+  aiStatusMessage.value = 'API 키가 브라우저에 임시 저장되었습니다.'
+  aiStatusType.value = 'success'
+  setTimeout(() => {
+    aiStatusMessage.value = ''
+  }, 3000)
+}
+
+// Local Parse Fallback (Heuristic Analyzer)
+const parseHeuristically = (prompt) => {
+  const parts = prompt.split(/[,+]/)
+  const result = []
+  
+  for (let part of parts) {
+    part = part.trim()
+    if (!part) continue
+    
+    const matchNumber = part.match(/\d+/)
+    if (matchNumber) {
+      const count = parseInt(matchNumber[0], 10)
+      let name = part.replace(/\d+/, '').replace(/[명개번등]/g, '').trim()
+      if (!name) name = '제비'
+      
+      name = name.replace(/(만들어줘|생성|제비)/g, '').trim()
+      
+      const emojiMap = {
+        '당첨': '🎉',
+        '꽝': '😢',
+        '커피': '☕',
+        '통과': '🟢',
+        '벌칙': '😈',
+        '맥주': '🍺',
+        '치킨': '🍗',
+        '피자': '🍕',
+        '식사': '🍚',
+        '선물': '🎁',
+        '돈': '💵',
+        '스타벅스': '☕'
+      }
+      
+      let emojiAdded = name
+      for (const [key, val] of Object.entries(emojiMap)) {
+        if (name.includes(key) && !name.includes(val)) {
+          emojiAdded = `${name} ${val}`
+          break
+        }
+      }
+      
+      for (let i = 0; i < count; i++) {
+        result.push(emojiAdded)
+      }
+    }
+  }
+  
+  if (result.length < 2) {
+    const words = prompt.split(/[\s,]+/).map(w => w.trim()).filter(w => w.length > 0)
+    if (words.length >= 2) {
+      return words.map(word => {
+        const emojiMap = {
+          '당첨': '🎉',
+          '꽝': '😢',
+          '커피': '☕',
+          '통과': '🟢',
+          '벌칙': '😈'
+        }
+        let emojiAdded = word
+        for (const [key, val] of Object.entries(emojiMap)) {
+          if (word.includes(key) && !word.includes(val)) {
+            emojiAdded = `${word} ${val}`
+            break
+          }
+        }
+        return emojiAdded
+      })
+    }
+  }
+  
+  return result
+}
+
+const generateWithAI = async () => {
+  if (!aiPrompt.value.trim()) return
+  
+  isGeneratingAI.value = true
+  aiStatusMessage.value = '제비를 생성하는 중입니다...'
+  aiStatusType.value = 'info'
+  
+  const key = apiKey.value.trim()
+  
+  if (!key) {
+    // Local Fallback Heuristic
+    setTimeout(() => {
+      try {
+        const generated = parseHeuristically(aiPrompt.value)
+        if (generated.length < 2) {
+          throw new Error('의미 있는 제비 항목을 추출하지 못했습니다. 형식을 맞춰 다시 입력해주세요. (예: 당첨 1, 꽝 3)')
+        }
+        
+        const limited = generated.slice(0, 16)
+        emit('update:modelValue', limited)
+        playSound('shuffle')
+        
+        aiStatusMessage.value = `로컬 분석기로 ${limited.length}개의 제비를 생성했습니다! (API 키를 등록하면 더 정확한 Gemini AI 생성이 가능합니다)`
+        aiStatusType.value = 'success'
+        aiPrompt.value = ''
+      } catch (e) {
+        aiStatusMessage.value = e.message
+        aiStatusType.value = 'error'
+      } finally {
+        isGeneratingAI.value = false
+      }
+    }, 800)
+    return
+  }
+  
+  // Gemini API call
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `사용자의 요청: "${aiPrompt.value}"
+이 요청을 바탕으로 제비뽑기 게임에 사용할 제비 목록을 한국어로 생성해주세요.
+제비 개수는 최소 2개, 최대 16개여야 합니다.
+결과는 추가 설명 없이 오직 JSON string array 형식으로만 반환해 주세요. 마크다운(\`\`\`) 형식도 붙이지 말고 순수 배열 텍스트로만 반환해주세요.
+이모지를 적절하게 추가하여 예쁘게 만들어 주세요.
+예시 반환 형태: ["당첨 🎉", "꽝 😢", "꽝 😢", "커피 쏘기 ☕"]`
+          }]
+        }]
+      })
+    })
+    
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}))
+      throw new Error(errData.error?.message || `API 요청 실패 (상태 코드: ${response.status})`)
+    }
+    
+    const data = await response.json()
+    const contentText = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!contentText) {
+      throw new Error('API 응답에 텍스트 데이터가 없습니다.')
+    }
+    
+    const cleanedText = contentText.replace(/```json/g, '').replace(/```/g, '').trim()
+    const generated = JSON.parse(cleanedText)
+    
+    if (!Array.isArray(generated) || generated.length < 2) {
+      throw new Error('배열 형식을 분석할 수 없습니다.')
+    }
+    
+    const limited = generated.slice(0, 16).map(item => String(item).slice(0, 20))
+    emit('update:modelValue', limited)
+    playSound('shuffle')
+    
+    aiStatusMessage.value = `Gemini AI가 ${limited.length}개의 제비를 생성했습니다! 🪄`
+    aiStatusType.value = 'success'
+    aiPrompt.value = ''
+  } catch (e) {
+    console.error('Gemini error:', e)
+    aiStatusMessage.value = `Gemini 호출 실패: ${e.message}. 로컬 패턴 분석기로 시도합니다.`
+    aiStatusType.value = 'error'
+    
+    setTimeout(() => {
+      try {
+        const generated = parseHeuristically(aiPrompt.value)
+        if (generated.length < 2) {
+          throw new Error('로컬 분석기로도 제비를 파싱하지 못했습니다.')
+        }
+        const limited = generated.slice(0, 16)
+        emit('update:modelValue', limited)
+        playSound('shuffle')
+        aiStatusMessage.value = `로컬 파서가 대신 ${limited.length}개의 제비를 생성했습니다.`
+        aiStatusType.value = 'success'
+        aiPrompt.value = ''
+      } catch (err) {
+        aiStatusMessage.value = `오류: ${err.message}`
+        aiStatusType.value = 'error'
+      }
+    }, 1500)
+  } finally {
+    isGeneratingAI.value = false
+  }
+}
 </script>
 
 <template>
   <main class="setup-area">
     <div v-if="!isSecure" class="glass-panel" style="border-color: #fb7185; background: rgba(251, 113, 133, 0.05); margin-bottom: 12px; padding: 12px 16px;">
       <p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.45;">
-        ⚠️ <strong>HTTP 접속 알림</strong>: 모바일 브라우저의 보안 정책으로 인해 HTTP 접속 환경에서는 흔들기 센서 기능이 차단될 수 있습니다. 센서 작동을 위해서는 <strong>HTTPS</strong> 또는 로컬 <strong>localhost</strong>를 통해 연결해 주시기 바랍니다.
+        ⚠️ <strong>HTTP 접속 알림</strong>: 모바일 브라우저의 보안 정책으로 인해 HTTP 접속 환경에서는 흔들기 센서 및 음성 인식 기능이 제한될 수 있습니다. <strong>HTTPS</strong> 또는 <strong>localhost</strong>를 통해 연결해 주시기 바랍니다.
       </p>
     </div>
 
+    <!-- AI & Voice Helper Panel -->
+    <div class="glass-panel ai-panel">
+      <div class="ai-header">
+        <div class="ai-title-wrap">
+          <span class="ai-sparkle">🪄</span>
+          <h3>AI 제비 자동 생성</h3>
+        </div>
+        <button 
+          type="button" 
+          class="btn-setting-toggle" 
+          @click="showApiKeyInput = !showApiKeyInput"
+          title="Gemini API 설정"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+      </div>
+
+      <!-- API Key Setting -->
+      <Transition name="expand">
+        <div v-if="showApiKeyInput" class="api-key-config">
+          <label for="gemini-key">Gemini API Key</label>
+          <div class="api-key-input-row">
+            <input 
+              id="gemini-key"
+              v-model="apiKey"
+              type="password" 
+              placeholder="AI Studio에서 발급받은 API 키 입력"
+              class="api-input"
+            />
+            <button type="button" class="btn-save-key" @click="saveApiKey">저장</button>
+          </div>
+          <p class="api-tip">키가 없어도 한국어 패턴 분석기로 <strong>기본 자동 생성</strong>이 가능합니다.</p>
+        </div>
+      </Transition>
+
+      <div class="ai-input-wrapper">
+        <textarea 
+          v-model="aiPrompt" 
+          class="ai-textarea" 
+          placeholder="예: 당첨 1명, 꽝 3명 만들어줘 / 커피 1개, 통과 4개 / 오늘 저녁 메뉴 정하기 제비 5개"
+          rows="2"
+          maxlength="100"
+        ></textarea>
+        
+        <div class="ai-actions">
+          <button 
+            type="button" 
+            class="btn-ai-mic" 
+            :class="{ listening: isListening && listeningTarget === 'prompt' }"
+            @click="toggleSpeech('prompt')"
+            title="음성으로 입력하기"
+          >
+            <span class="mic-icon">🎙️</span>
+            <span class="mic-text" v-if="isListening && listeningTarget === 'prompt'">듣는 중...</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="btn-ai-generate" 
+            :disabled="isGeneratingAI || !aiPrompt.trim()"
+            @click="generateWithAI"
+          >
+            <span v-if="isGeneratingAI" class="loading-spinner">🌀</span>
+            <span>{{ isGeneratingAI ? '생성 중...' : '제비 자동 생성 ✨' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="aiStatusMessage" class="ai-status-message" :class="aiStatusType">
+        {{ aiStatusMessage }}
+      </div>
+    </div>
+
+    <!-- Manual Inputs Panel -->
     <div class="glass-panel">
       <div class="setup-controls">
         <span class="item-count">제비 개수: {{ localItems.length }}개</span>
@@ -124,6 +458,15 @@ const onStart = () => {
               :placeholder="`제비 ${idx + 1} 내용을 입력하세요`"
               maxlength="20"
             />
+            <button 
+              type="button" 
+              class="btn-row-mic"
+              :class="{ listening: isListening && listeningTarget === idx }"
+              @click="toggleSpeech(idx)"
+              title="음성 입력"
+            >
+              🎙️
+            </button>
             <button 
               type="button" 
               class="btn-delete-row" 
