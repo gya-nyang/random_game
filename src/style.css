@@ -246,6 +246,7 @@ html {
   font-family: var(--font-sans);
   font-size: 1rem;
   padding: 6px 0;
+  min-width: 0;
 }
 
 .item-input::placeholder {
@@ -264,6 +265,7 @@ html {
   align-items: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .btn-delete-row:hover {
@@ -895,15 +897,16 @@ html {
 .btn-row-mic {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  padding: 10px;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   color: var(--text-secondary);
-  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .btn-row-mic:hover {
