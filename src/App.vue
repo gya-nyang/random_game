@@ -86,6 +86,102 @@ const generateRandomPositions = () => {
   })
 }
 
+// 8. Physics-based Bouncing Animation
+const isPhysicsActive = ref(false)
+let physicsFrameId = null
+let lastSoundTime = 0
+
+const playBounceSound = () => {
+  const now = Date.now()
+  if (now - lastSoundTime > 120) {
+    playSound('shake')
+    lastSoundTime = now
+  }
+}
+
+const startPhysicsSimulation = () => {
+  if (physicsFrameId) cancelAnimationFrame(physicsFrameId)
+
+  // Initialize random velocities
+  cards.value = cards.value.map(card => {
+    const angle = Math.random() * Math.PI * 2
+    const speed = 1.8 + Math.random() * 1.5 // Speed in % per frame
+    return {
+      ...card,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      x: card.x || (20 + Math.random() * 60),
+      y: card.y || (20 + Math.random() * 60)
+    }
+  })
+
+  isPhysicsActive.value = true
+  const startTime = Date.now()
+  const duration = 1000 // 1.0s of bouncing
+
+  const updatePhysics = () => {
+    const elapsed = Date.now() - startTime
+    if (elapsed >= duration) {
+      isPhysicsActive.value = false
+      generateRandomPositions() // Settle into final scatter layout
+      return
+    }
+
+    cards.value = cards.value.map(card => {
+      let nextX = card.x + card.vx
+      let nextY = card.y + card.vy
+      let vx = card.vx
+      let vy = card.vy
+
+      const minX = 2
+      const maxX = 80
+      const minY = 2
+      const maxY = 82
+      const bounce = 0.9 // Elastic bounce factor
+
+      // Wall X collision
+      if (nextX < minX) {
+        nextX = minX
+        vx = -vx * bounce
+        playBounceSound()
+      } else if (nextX > maxX) {
+        nextX = maxX
+        vx = -vx * bounce
+        playBounceSound()
+      }
+
+      // Wall Y collision
+      if (nextY < minY) {
+        nextY = minY
+        vy = -vy * bounce
+        playBounceSound()
+      } else if (nextY > maxY) {
+        nextY = maxY
+        vy = -vy * bounce
+        playBounceSound()
+      }
+
+      // Slow down slightly near the end
+      if (elapsed > duration * 0.75) {
+        vx *= 0.92
+        vy *= 0.92
+      }
+
+      return {
+        ...card,
+        x: nextX,
+        y: nextY,
+        vx,
+        vy
+      }
+    })
+
+    physicsFrameId = requestAnimationFrame(updatePhysics)
+  }
+
+  physicsFrameId = requestAnimationFrame(updatePhysics)
+}
+
 // 8. Shuffling Action with Cooldown Lock
 const triggerShuffle = () => {
   if (shuffling.value || isCooldown.value) return
@@ -93,13 +189,15 @@ const triggerShuffle = () => {
   shuffling.value = true
   isCooldown.value = true
   
-  playSound('shake')
   if (navigator.vibrate) navigator.vibrate(80)
   
   // Fold all notes face down
   cards.value = cards.value.map(card => ({ ...card, revealed: false }))
   
-  // Shuffling animation finishes in 800ms
+  // Start physics bouncing simulation
+  startPhysicsSimulation()
+  
+  // Shuffling finishes in 1000ms
   setTimeout(() => {
     const values = cards.value.map(c => c.value)
     const shuffledValues = shuffleArray(values)
@@ -109,16 +207,15 @@ const triggerShuffle = () => {
       value: shuffledValues[idx]
     }))
     
-    generateRandomPositions()
     shuffling.value = false
     playSound('shuffle')
-  }, 800)
+  }, 1000)
 
-  // Hold sensor block for 1.2 seconds total to prevent continuous accidental triggers
+  // Hold sensor block for 1.5 seconds total
   if (cooldownTimer) clearTimeout(cooldownTimer)
   cooldownTimer = setTimeout(() => {
     isCooldown.value = false
-  }, 1200)
+  }, 1500)
 }
 
 // 9. Motion Sensor Events
@@ -190,6 +287,8 @@ const requestSensorPermission = async () => {
 // 11. Start Game Handler
 const startGame = async () => {
   initAudio()
+  if (physicsFrameId) cancelAnimationFrame(physicsFrameId)
+  isPhysicsActive.value = false
   
   const cleanedItems = items.value.map((item, idx) => {
     const val = item.trim()
@@ -256,6 +355,7 @@ const toggleCard = (index) => {
 
 onUnmounted(() => {
   stopShake()
+  if (physicsFrameId) cancelAnimationFrame(physicsFrameId)
 })
 </script>
 
@@ -281,6 +381,7 @@ onUnmounted(() => {
     :cards="cards"
     :shuffling="shuffling"
     :is-cooldown="isCooldown"
+    :is-physics-active="isPhysicsActive"
     :has-sensor-permission="hasSensorPermission"
     :is-secure="isSecure"
     :has-motion-event="hasMotionEvent"

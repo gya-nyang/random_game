@@ -39,6 +39,10 @@ const props = defineProps({
   shakeThreshold: {
     type: Number,
     required: true
+  },
+  isPhysicsActive: {
+    type: Boolean,
+    required: true
   }
 })
 
@@ -118,6 +122,7 @@ const handleUpdateThreshold = (val) => {
         :key="card.id"
         :card="card"
         :idx="idx"
+        :class="{ 'no-transition': isPhysicsActive }"
         @click="handleCardClick(idx)"
       />
     </div>
