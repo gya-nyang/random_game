@@ -126,55 +126,105 @@ const startPhysicsSimulation = () => {
       return
     }
 
-    cards.value = cards.value.map(card => {
-      let nextX = card.x + card.vx
-      let nextY = card.y + card.vy
-      let vx = card.vx
-      let vy = card.vy
+    const localCards = cards.value.map(c => ({ ...c }))
 
+    // 1. Move cards by velocity
+    localCards.forEach(card => {
+      card.x += card.vx
+      card.y += card.vy
+    })
+
+    // 2. Resolve capsule-to-capsule collisions
+    const minDist = 18 // Diameter of capsule in percentage space
+    for (let i = 0; i < localCards.length; i++) {
+      for (let j = i + 1; j < localCards.length; j++) {
+        const c1 = localCards[i]
+        const c2 = localCards[j]
+
+        let dx = c2.x - c1.x
+        let dy = c2.y - c1.y
+        let dist = Math.sqrt(dx * dx + dy * dy)
+
+        if (dist === 0) {
+          c2.x += 0.1
+          c2.y += 0.1
+          dx = c2.x - c1.x
+          dy = c2.y - c1.y
+          dist = Math.sqrt(dx * dx + dy * dy)
+        }
+
+        if (dist < minDist) {
+          const nx = dx / dist
+          const ny = dy / dist
+
+          // Resolve overlap (push apart)
+          const overlap = minDist - dist
+          c1.x -= nx * overlap * 0.5
+          c1.y -= ny * overlap * 0.5
+          c2.x += nx * overlap * 0.5
+          c2.y += ny * overlap * 0.5
+
+          // Relative velocity
+          const rvx = c2.vx - c1.vx
+          const rvy = c2.vy - c1.vy
+
+          // Dot product for relative velocity along normal
+          const velAlongNormal = rvx * nx + rvy * ny
+
+          // Bounce if moving towards each other
+          if (velAlongNormal < 0) {
+            const restitution = 0.85
+            const impulse = -(1 + restitution) * velAlongNormal / 2
+
+            c1.vx -= impulse * nx
+            c1.vy -= impulse * ny
+            c2.vx += impulse * nx
+            c2.vy += impulse * ny
+
+            playBounceSound()
+          }
+        }
+      }
+    }
+
+    // 3. Resolve wall collisions
+    localCards.forEach(card => {
       const minX = 2
       const maxX = 80
       const minY = 2
       const maxY = 82
-      const bounce = 0.9 // Elastic bounce factor
+      const bounce = 0.9
 
-      // Wall X collision
-      if (nextX < minX) {
-        nextX = minX
-        vx = -vx * bounce
+      if (card.x < minX) {
+        card.x = minX
+        card.vx = -card.vx * bounce
         playBounceSound()
-      } else if (nextX > maxX) {
-        nextX = maxX
-        vx = -vx * bounce
-        playBounceSound()
-      }
-
-      // Wall Y collision
-      if (nextY < minY) {
-        nextY = minY
-        vy = -vy * bounce
-        playBounceSound()
-      } else if (nextY > maxY) {
-        nextY = maxY
-        vy = -vy * bounce
+      } else if (card.x > maxX) {
+        card.x = maxX
+        card.vx = -card.vx * bounce
         playBounceSound()
       }
 
-      // Slow down slightly near the end
-      if (elapsed > duration * 0.75) {
-        vx *= 0.92
-        vy *= 0.92
-      }
-
-      return {
-        ...card,
-        x: nextX,
-        y: nextY,
-        vx,
-        vy
+      if (card.y < minY) {
+        card.y = minY
+        card.vy = -card.vy * bounce
+        playBounceSound()
+      } else if (card.y > maxY) {
+        card.y = maxY
+        card.vy = -card.vy * bounce
+        playBounceSound()
       }
     })
 
+    // 4. Slow down near the end
+    if (elapsed > duration * 0.75) {
+      localCards.forEach(card => {
+        card.vx *= 0.92
+        card.vy *= 0.92
+      })
+    }
+
+    cards.value = localCards
     physicsFrameId = requestAnimationFrame(updatePhysics)
   }
 
