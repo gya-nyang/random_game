@@ -31,52 +31,33 @@ const isWin = computed(() => {
     }"
     @click="$emit('click')"
   >
-    <div class="unfold-paper" :class="{ 'is-revealed': card.revealed }">
-      <!-- 1. The Main Message Body (revealed underneath) -->
+    <div class="capsule-container" :class="{ 'is-opened': card.revealed }">
+      <!-- 1. The Result Note (Inside capsule, rises up when opened) -->
       <div 
-        class="paper-body"
+        class="capsule-paper"
         :class="{ 'revealed-win': isWin }"
       >
-        <span class="paper-back-value">{{ card.value }}</span>
-        <span class="paper-back-index">#{{ idx + 1 }}</span>
+        <span class="capsule-paper-value">{{ card.value }}</span>
+        <span class="capsule-paper-index">#{{ idx + 1 }}</span>
       </div>
 
-      <!-- 2. The Flaps (Folding paper folds) -->
-      <!-- Top Flap (flips UPwards) -->
+      <!-- 2. Top Half (Transparent plastic with question mark) -->
       <div 
-        class="paper-flap top-flap"
+        class="capsule-half top-half"
+        :style="{ '--color-base': card.color.base }"
+      >
+        <span class="capsule-question-mark">?</span>
+      </div>
+
+      <!-- 3. Bottom Half (Opaque colored plastic with index label) -->
+      <div 
+        class="capsule-half bottom-half"
         :style="{ 
-          '--color-base': card.color.base, 
-          '--color-dark': card.color.dark 
+          '--color-base': card.color.base,
+          '--color-dark': card.color.dark
         }"
       >
-        <div class="flap-face flap-front">
-          <span class="paper-fold-icon">✉️</span>
-        </div>
-        <div class="flap-face flap-back"></div>
-      </div>
-
-      <!-- Bottom Flap (flips DOWNwards) -->
-      <div 
-        class="paper-flap bottom-flap"
-        :style="{ 
-          '--color-base': card.color.base, 
-          '--color-dark': card.color.dark 
-        }"
-      >
-        <div class="flap-face flap-front"></div>
-        <div class="flap-face flap-back"></div>
-      </div>
-
-      <!-- 3. Sticker Seal & Label (Overlays in the center, disappears when clicked) -->
-      <div 
-        class="paper-seal"
-        :style="{ '--color-dark': card.color.dark }"
-      >
-        ★
-      </div>
-      <div class="paper-label">
-        제비 {{ idx + 1 }}
+        <span class="capsule-label">#{{ idx + 1 }}</span>
       </div>
     </div>
   </div>
