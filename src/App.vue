@@ -551,11 +551,7 @@ onUnmounted(() => {
         @click="toggleCard(idx)"
       >
         <!-- Shaker overlay -->
-        <div 
-          class="folded-paper-shaker" 
-          :class="{ 'shaking-active': shuffling }"
-          :style="{ animationDelay: (idx * 0.04) + 's' }"
-        >
+        <div class="folded-paper-shaker">
           <!-- 3D Card flip -->
           <div class="paper-inner" :class="{ flipped: card.revealed }">
             <!-- Front: Folded paper style -->

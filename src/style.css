@@ -376,10 +376,7 @@ html {
   transition: transform 0.1s ease;
 }
 
-/* Active shaker logic */
-.shaking-active {
-  animation: violentShake 0.45s ease-in-out infinite;
-}
+
 
 /* Folded Paper Inner Layout (3D Flip) */
 .paper-inner {
@@ -643,19 +640,7 @@ html {
   50% { transform: rotate(0deg); }
 }
 
-@keyframes violentShake {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  10% { transform: translate(-10px, 6px) rotate(-12deg); }
-  20% { transform: translate(10px, -6px) rotate(12deg); }
-  30% { transform: translate(-6px, 10px) rotate(-8deg); }
-  40% { transform: translate(6px, -10px) rotate(8deg); }
-  50% { transform: translate(-10px, -6px) rotate(-12deg); }
-  60% { transform: translate(10px, 6px) rotate(12deg); }
-  70% { transform: translate(-6px, 6px) rotate(-8deg); }
-  80% { transform: translate(6px, -6px) rotate(8deg); }
-  90% { transform: translate(-3px, 3px) rotate(-4deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
-}
+
 
 /* Custom list transitions */
 .list-enter-active,
