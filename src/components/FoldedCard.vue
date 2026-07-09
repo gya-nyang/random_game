@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   card: {
     type: Object,
     required: true
@@ -11,6 +13,11 @@ defineProps({
 })
 
 defineEmits(['click'])
+
+const isWin = computed(() => {
+  const val = props.card.value
+  return val.includes('당첨') || val.includes('🎉') || val.includes('1등')
+})
 </script>
 
 <template>
@@ -24,30 +31,52 @@ defineEmits(['click'])
     }"
     @click="$emit('click')"
   >
-    <!-- Shaker overlay -->
-    <div class="folded-paper-shaker">
-      <!-- 3D Card flip -->
-      <div class="paper-inner" :class="{ flipped: card.revealed }">
-        <!-- Front: Folded paper style -->
-        <div 
-          class="paper-front" 
-          :style="{ 
-            '--color-base': card.color.base, 
-            '--color-dark': card.color.dark 
-          }"
-        >
-          <span class="paper-fold-icon">✉️</span>
-          <span class="paper-label">제비 {{ idx + 1 }}</span>
-        </div>
+    <div class="unfold-paper" :class="{ 'is-revealed': card.revealed }">
+      <!-- 1. The Main Message Body (revealed underneath) -->
+      <div 
+        class="paper-body"
+        :class="{ 'revealed-win': isWin }"
+      >
+        <span class="paper-back-value">{{ card.value }}</span>
+        <span class="paper-back-index">#{{ idx + 1 }}</span>
+      </div>
 
-        <!-- Back: Unfolded paper -->
-        <div 
-          class="paper-back"
-          :class="{ 'revealed-win': card.value.includes('당첨') || card.value.includes('🎉') || card.value.includes('1등') }"
-        >
-          <span class="paper-back-value">{{ card.value }}</span>
-          <span class="paper-back-index">#{{ idx + 1 }}</span>
+      <!-- 2. The Flaps (Folding paper folds) -->
+      <!-- Top Flap (flips UPwards) -->
+      <div 
+        class="paper-flap top-flap"
+        :style="{ 
+          '--color-base': card.color.base, 
+          '--color-dark': card.color.dark 
+        }"
+      >
+        <div class="flap-face flap-front">
+          <span class="paper-fold-icon">✉️</span>
         </div>
+        <div class="flap-face flap-back"></div>
+      </div>
+
+      <!-- Bottom Flap (flips DOWNwards) -->
+      <div 
+        class="paper-flap bottom-flap"
+        :style="{ 
+          '--color-base': card.color.base, 
+          '--color-dark': card.color.dark 
+        }"
+      >
+        <div class="flap-face flap-front"></div>
+        <div class="flap-face flap-back"></div>
+      </div>
+
+      <!-- 3. Sticker Seal & Label (Overlays in the center, disappears when clicked) -->
+      <div 
+        class="paper-seal"
+        :style="{ '--color-dark': card.color.dark }"
+      >
+        ★
+      </div>
+      <div class="paper-label">
+        제비 {{ idx + 1 }}
       </div>
     </div>
   </div>
