@@ -123,7 +123,6 @@ const startPhysicsSimulation = () => {
     const elapsed = Date.now() - startTime
     if (elapsed >= duration) {
       isPhysicsActive.value = false
-      generateRandomPositions() // Settle into final scatter layout
       return
     }
 
