@@ -74,11 +74,29 @@ const onStart = () => {
 // 🎙️ Speech Recognition & 🪄 Gemini AI State
 // ==========================================
 const aiPrompt = ref('')
-const apiKey = ref(localStorage.getItem('gemini_api_key') || '')
-const showApiKeyInput = ref(!apiKey.value)
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ''
 const isGeneratingAI = ref(false)
 const aiStatusMessage = ref('')
 const aiStatusType = ref('') // 'success' | 'error' | 'info'
+
+// Toast State
+const toast = ref({
+  show: false,
+  message: '',
+  type: 'info' // 'info' | 'success' | 'error' | 'warning'
+})
+
+let toastTimeout = null
+const triggerToast = (message, type = 'info') => {
+  if (toastTimeout) clearTimeout(toastTimeout)
+  toast.value.message = message
+  toast.value.type = type
+  toast.value.show = true
+  toastTimeout = setTimeout(() => {
+    toast.value.show = false
+  }, 4000)
+}
+
 
 const isListening = ref(false)
 const listeningTarget = ref(null) // 'prompt' | number (row index)
@@ -138,16 +156,6 @@ const toggleSpeech = (target) => {
   } catch (err) {
     console.error('Speech recognition start failed:', err)
   }
-}
-
-const saveApiKey = () => {
-  localStorage.setItem('gemini_api_key', apiKey.value)
-  showApiKeyInput.value = false
-  aiStatusMessage.value = 'API 키가 브라우저에 임시 저장되었습니다.'
-  aiStatusType.value = 'success'
-  setTimeout(() => {
-    aiStatusMessage.value = ''
-  }, 3000)
 }
 
 // Local Parse Fallback (Heuristic Analyzer)
@@ -229,7 +237,7 @@ const generateWithAI = async () => {
   aiStatusMessage.value = '제비를 생성하는 중입니다...'
   aiStatusType.value = 'info'
   
-  const key = apiKey.value.trim()
+  const key = apiKey.trim()
   
   if (!key) {
     // Local Fallback Heuristic
@@ -244,12 +252,13 @@ const generateWithAI = async () => {
         emit('update:modelValue', limited)
         playSound('shuffle')
         
-        aiStatusMessage.value = `로컬 분석기로 ${limited.length}개의 제비를 생성했습니다! (API 키를 등록하면 더 정확한 Gemini AI 생성이 가능합니다)`
+        aiStatusMessage.value = `로컬 분석기로 ${limited.length}개의 제비를 생성했습니다! (환경변수에 API 키를 설정하면 Gemini AI 생성이 가능합니다)`
         aiStatusType.value = 'success'
         aiPrompt.value = ''
       } catch (e) {
         aiStatusMessage.value = e.message
         aiStatusType.value = 'error'
+        triggerToast(e.message, 'error')
       } finally {
         isGeneratingAI.value = false
       }
@@ -279,6 +288,10 @@ const generateWithAI = async () => {
     })
     
     if (!response.ok) {
+      if (response.status === 429) {
+        triggerToast('⚠️ Gemini API 무료 등급 호출 한도(Rate Limit)를 초과했습니다. 잠시 후 다시 시도해 주세요.', 'error')
+        throw new Error('API 호출 한도 초과')
+      }
       const errData = await response.json().catch(() => ({}))
       throw new Error(errData.error?.message || `API 요청 실패 (상태 코드: ${response.status})`)
     }
@@ -305,6 +318,9 @@ const generateWithAI = async () => {
     aiPrompt.value = ''
   } catch (e) {
     console.error('Gemini error:', e)
+    if (e.message !== 'API 호출 한도 초과') {
+      triggerToast(`❌ Gemini 호출 실패: ${e.message}`, 'error')
+    }
     aiStatusMessage.value = `Gemini 호출 실패: ${e.message}. 로컬 패턴 분석기로 시도합니다.`
     aiStatusType.value = 'error'
     
@@ -323,6 +339,7 @@ const generateWithAI = async () => {
       } catch (err) {
         aiStatusMessage.value = `오류: ${err.message}`
         aiStatusType.value = 'error'
+        triggerToast(`❌ 오류: ${err.message}`, 'error')
       }
     }, 1500)
   } finally {
@@ -346,33 +363,7 @@ const generateWithAI = async () => {
           <span class="ai-sparkle">🪄</span>
           <h3>AI 제비 자동 생성</h3>
         </div>
-        <button 
-          type="button" 
-          class="btn-setting-toggle" 
-          @click="showApiKeyInput = !showApiKeyInput"
-          title="Gemini API 설정"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        </button>
       </div>
-
-      <!-- API Key Setting -->
-      <Transition name="expand">
-        <div v-if="showApiKeyInput" class="api-key-config">
-          <label for="gemini-key">Gemini API Key</label>
-          <div class="api-key-input-row">
-            <input 
-              id="gemini-key"
-              v-model="apiKey"
-              type="password" 
-              placeholder="AI Studio에서 발급받은 API 키 입력"
-              class="api-input"
-            />
-            <button type="button" class="btn-save-key" @click="saveApiKey">저장</button>
-          </div>
-          <p class="api-tip">키가 없어도 한국어 패턴 분석기로 <strong>기본 자동 생성</strong>이 가능합니다.</p>
-        </div>
-      </Transition>
 
       <div class="ai-input-wrapper">
         <textarea 
@@ -488,5 +479,27 @@ const generateWithAI = async () => {
         <span>게임 시작하기 🚀</span>
       </button>
     </div>
+
+    <!-- Toast Notification -->
+    <Transition name="toast-fade">
+      <div v-if="toast.show" class="custom-toast" :class="toast.type">
+        <div class="toast-icon">
+          <span v-if="toast.type === 'error'">🚨</span>
+          <span v-else-if="toast.type === 'warning'">⚠️</span>
+          <span v-else-if="toast.type === 'success'">✅</span>
+          <span v-else>ℹ️</span>
+        </div>
+        <div class="toast-content">
+          <h4 class="toast-title">
+            <template v-if="toast.type === 'error'">API 오류</template>
+            <template v-else-if="toast.type === 'warning'">경고</template>
+            <template v-else-if="toast.type === 'success'">성공</template>
+            <template v-else>알림</template>
+          </h4>
+          <p class="toast-desc">{{ toast.message }}</p>
+        </div>
+        <button type="button" class="btn-toast-close" @click="toast.show = false">×</button>
+      </div>
+    </Transition>
   </main>
 </template>
