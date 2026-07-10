@@ -3,6 +3,8 @@ import { ref, onUnmounted } from 'vue'
 import { playSound, initAudio } from './utils/audio.js'
 import SetupView from './components/SetupView.vue'
 import PlayView from './components/PlayView.vue'
+import { useShakeSensor } from './composables/useShakeSensor.js'
+import { usePhysicsSimulation } from './composables/usePhysicsSimulation.js'
 
 // 1. App State
 const gameState = ref('setup') // 'setup' | 'play'
@@ -10,23 +12,62 @@ const items = ref(['당첨 🎉', '꽝 😢', '꽝 😢', '커피 쏘기 ☕'])
 const cards = ref([])
 const shuffling = ref(false)
 const isCooldown = ref(false)
-
-// 2. Shake & Sensor Detection State
-const hasSensorPermission = ref(null)
-const lastX = ref(0)
-const lastY = ref(0)
-const lastZ = ref(0)
-const lastUpdate = ref(0)
 let cooldownTimer = null
 
-// 3. Sensor Debug State
-const isSecure = ref(window.isSecureContext)
-const hasMotionEvent = ref(typeof window.DeviceMotionEvent !== 'undefined')
-const eventCount = ref(0)
-const currentSpeed = ref(0)
-const shakeThreshold = ref(1200)
+// 2. Composables
+const { 
+  isPhysicsActive, 
+  startPhysicsSimulation, 
+  stopPhysics 
+} = usePhysicsSimulation(cards)
 
-// 4. Color Palettes (Folded Paper colors)
+const triggerShuffle = () => {
+  if (shuffling.value || isCooldown.value) return
+  
+  shuffling.value = true
+  isCooldown.value = true
+  
+  if (navigator.vibrate) navigator.vibrate(80)
+  
+  // Fold all notes face down
+  cards.value = cards.value.map(card => ({ ...card, revealed: false }))
+  
+  // Start physics simulation
+  startPhysicsSimulation()
+  
+  // Shuffling finishes in 1000ms
+  setTimeout(() => {
+    const values = cards.value.map(c => c.value)
+    const shuffledValues = shuffleArray(values)
+    
+    cards.value = cards.value.map((card, idx) => ({
+      ...card,
+      value: shuffledValues[idx]
+    }))
+    
+    shuffling.value = false
+    playSound('shuffle')
+  }, 1000)
+
+  // Hold sensor block for 1.5 seconds total
+  if (cooldownTimer) clearTimeout(cooldownTimer)
+  cooldownTimer = setTimeout(() => {
+    isCooldown.value = false
+  }, 1500)
+}
+
+const {
+  hasSensorPermission,
+  isSecure,
+  hasMotionEvent,
+  eventCount,
+  currentSpeed,
+  shakeThreshold,
+  requestSensorPermission,
+  stopShake
+} = useShakeSensor(triggerShuffle)
+
+// 3. Color Palettes (Folded Paper colors)
 const colorPalettes = [
   { base: '#a78bfa', dark: '#7c3aed' }, // Purple
   { base: '#f472b6', dark: '#db2777' }, // Pink
@@ -47,7 +88,7 @@ const shuffleArray = (array) => {
   return arr
 }
 
-// 7. Grid-Scatter Layout Generator
+// Grid-Scatter Layout Generator
 const generateRandomPositions = () => {
   const count = cards.value.length
   const cols = Math.ceil(Math.sqrt(count))
@@ -86,258 +127,10 @@ const generateRandomPositions = () => {
   })
 }
 
-// 8. Physics-based Bouncing Animation
-const isPhysicsActive = ref(false)
-let physicsFrameId = null
-let lastSoundTime = 0
-
-const playBounceSound = () => {
-  const now = Date.now()
-  if (now - lastSoundTime > 120) {
-    playSound('shake')
-    lastSoundTime = now
-  }
-}
-
-const startPhysicsSimulation = () => {
-  if (physicsFrameId) cancelAnimationFrame(physicsFrameId)
-
-  // Initialize random velocities
-  cards.value = cards.value.map(card => {
-    const angle = Math.random() * Math.PI * 2
-    const speed = 1.8 + Math.random() * 1.5 // Speed in % per frame
-    return {
-      ...card,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      x: card.x || (20 + Math.random() * 60),
-      y: card.y || (20 + Math.random() * 60)
-    }
-  })
-
-  isPhysicsActive.value = true
-  const startTime = Date.now()
-  const duration = 1000 // 1.0s of bouncing
-
-  const updatePhysics = () => {
-    const elapsed = Date.now() - startTime
-    if (elapsed >= duration) {
-      isPhysicsActive.value = false
-      return
-    }
-
-    const localCards = cards.value.map(c => ({ ...c }))
-
-    // 1. Move cards by velocity
-    localCards.forEach(card => {
-      card.x += card.vx
-      card.y += card.vy
-    })
-
-    // 2. Resolve capsule-to-capsule collisions
-    const minDist = 18 // Diameter of capsule in percentage space
-    for (let i = 0; i < localCards.length; i++) {
-      for (let j = i + 1; j < localCards.length; j++) {
-        const c1 = localCards[i]
-        const c2 = localCards[j]
-
-        let dx = c2.x - c1.x
-        let dy = c2.y - c1.y
-        let dist = Math.sqrt(dx * dx + dy * dy)
-
-        if (dist === 0) {
-          c2.x += 0.1
-          c2.y += 0.1
-          dx = c2.x - c1.x
-          dy = c2.y - c1.y
-          dist = Math.sqrt(dx * dx + dy * dy)
-        }
-
-        if (dist < minDist) {
-          const nx = dx / dist
-          const ny = dy / dist
-
-          // Resolve overlap (push apart)
-          const overlap = minDist - dist
-          c1.x -= nx * overlap * 0.5
-          c1.y -= ny * overlap * 0.5
-          c2.x += nx * overlap * 0.5
-          c2.y += ny * overlap * 0.5
-
-          // Relative velocity
-          const rvx = c2.vx - c1.vx
-          const rvy = c2.vy - c1.vy
-
-          // Dot product for relative velocity along normal
-          const velAlongNormal = rvx * nx + rvy * ny
-
-          // Bounce if moving towards each other
-          if (velAlongNormal < 0) {
-            const restitution = 0.85
-            const impulse = -(1 + restitution) * velAlongNormal / 2
-
-            c1.vx -= impulse * nx
-            c1.vy -= impulse * ny
-            c2.vx += impulse * nx
-            c2.vy += impulse * ny
-
-            playBounceSound()
-          }
-        }
-      }
-    }
-
-    // 3. Resolve wall collisions
-    localCards.forEach(card => {
-      const minX = 2
-      const maxX = 80
-      const minY = 2
-      const maxY = 82
-      const bounce = 0.9
-
-      if (card.x < minX) {
-        card.x = minX
-        card.vx = -card.vx * bounce
-        playBounceSound()
-      } else if (card.x > maxX) {
-        card.x = maxX
-        card.vx = -card.vx * bounce
-        playBounceSound()
-      }
-
-      if (card.y < minY) {
-        card.y = minY
-        card.vy = -card.vy * bounce
-        playBounceSound()
-      } else if (card.y > maxY) {
-        card.y = maxY
-        card.vy = -card.vy * bounce
-        playBounceSound()
-      }
-    })
-
-    // 4. Slow down near the end
-    if (elapsed > duration * 0.75) {
-      localCards.forEach(card => {
-        card.vx *= 0.92
-        card.vy *= 0.92
-      })
-    }
-
-    cards.value = localCards
-    physicsFrameId = requestAnimationFrame(updatePhysics)
-  }
-
-  physicsFrameId = requestAnimationFrame(updatePhysics)
-}
-
-// 8. Shuffling Action with Cooldown Lock
-const triggerShuffle = () => {
-  if (shuffling.value || isCooldown.value) return
-  
-  shuffling.value = true
-  isCooldown.value = true
-  
-  if (navigator.vibrate) navigator.vibrate(80)
-  
-  // Fold all notes face down
-  cards.value = cards.value.map(card => ({ ...card, revealed: false }))
-  
-  // Start physics bouncing simulation
-  startPhysicsSimulation()
-  
-  // Shuffling finishes in 1000ms
-  setTimeout(() => {
-    const values = cards.value.map(c => c.value)
-    const shuffledValues = shuffleArray(values)
-    
-    cards.value = cards.value.map((card, idx) => ({
-      ...card,
-      value: shuffledValues[idx]
-    }))
-    
-    shuffling.value = false
-    playSound('shuffle')
-  }, 1000)
-
-  // Hold sensor block for 1.5 seconds total
-  if (cooldownTimer) clearTimeout(cooldownTimer)
-  cooldownTimer = setTimeout(() => {
-    isCooldown.value = false
-  }, 1500)
-}
-
-// 9. Motion Sensor Events
-const handleMotion = (event) => {
-  if (gameState.value !== 'play' || shuffling.value || isCooldown.value) return
-  eventCount.value++
-
-  const acc = event.accelerationIncludingGravity || event.acceleration
-  if (!acc) return
-
-  const { x, y, z } = acc
-  if (x === null || y === null || z === null) return
-
-  const currentTime = Date.now()
-  const diffTime = currentTime - lastUpdate.value
-
-  // Check every 80ms to accumulate change correctly
-  if (diffTime > 80) {
-    if (lastUpdate.value !== 0) {
-      const deltaX = Math.abs(x - lastX.value)
-      const deltaY = Math.abs(y - lastY.value)
-      const deltaZ = Math.abs(z - lastZ.value)
-      
-      const speed = (deltaX + deltaY + deltaZ) / diffTime * 10000
-      currentSpeed.value = Math.round(speed)
-
-      // Trigger shake when speed exceeds threshold
-      if (speed > shakeThreshold.value) {
-        triggerShuffle()
-      }
-    }
-
-    lastUpdate.value = currentTime
-    lastX.value = x
-    lastY.value = y
-    lastZ.value = z
-  }
-}
-
-// 10. Sensor Permission request
-const requestSensorPermission = async () => {
-  isSecure.value = window.isSecureContext
-  hasMotionEvent.value = typeof window.DeviceMotionEvent !== 'undefined'
-
-  if (
-    typeof DeviceMotionEvent !== 'undefined' &&
-    typeof DeviceMotionEvent.requestPermission === 'function'
-  ) {
-    try {
-      const permissionState = await DeviceMotionEvent.requestPermission()
-      if (permissionState === 'granted') {
-        window.addEventListener('devicemotion', handleMotion)
-        hasSensorPermission.value = true
-      } else {
-        hasSensorPermission.value = false
-      }
-    } catch (e) {
-      console.error('Sensor Permission request error:', e)
-      hasSensorPermission.value = false
-    }
-  } else if (typeof DeviceMotionEvent !== 'undefined') {
-    window.addEventListener('devicemotion', handleMotion)
-    hasSensorPermission.value = true
-  } else {
-    hasSensorPermission.value = false
-  }
-}
-
-// 11. Start Game Handler
+// Start Game Handler
 const startGame = async () => {
   initAudio()
-  if (physicsFrameId) cancelAnimationFrame(physicsFrameId)
-  isPhysicsActive.value = false
+  stopPhysics()
   
   const cleanedItems = items.value.map((item, idx) => {
     const val = item.trim()
@@ -359,24 +152,10 @@ const startGame = async () => {
   })
 
   gameState.value = 'play'
-  eventCount.value = 0
-  currentSpeed.value = 0
-  lastUpdate.value = 0
-  isCooldown.value = false
   
   generateRandomPositions()
   await requestSensorPermission()
   triggerShuffle()
-}
-
-// 12. Stop Sensors
-const stopShake = () => {
-  window.removeEventListener('devicemotion', handleMotion)
-  if (cooldownTimer) clearTimeout(cooldownTimer)
-  lastX.value = 0
-  lastY.value = 0
-  lastZ.value = 0
-  lastUpdate.value = 0
 }
 
 const exitGame = () => {
@@ -384,7 +163,7 @@ const exitGame = () => {
   gameState.value = 'setup'
 }
 
-// 13. Card Toggle
+// Card Toggle
 const maxZIndex = ref(20)
 const toggleCard = (index) => {
   if (shuffling.value) return
@@ -404,7 +183,7 @@ const toggleCard = (index) => {
 
 onUnmounted(() => {
   stopShake()
-  if (physicsFrameId) cancelAnimationFrame(physicsFrameId)
+  stopPhysics()
 })
 </script>
 
