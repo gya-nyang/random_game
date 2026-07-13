@@ -37,14 +37,6 @@ const triggerShuffle = () => {
   
   // Shuffling finishes in 1000ms
   setTimeout(() => {
-    const values = cards.value.map(c => c.value)
-    const shuffledValues = shuffleArray(values)
-    
-    cards.value = cards.value.map((card, idx) => ({
-      ...card,
-      value: shuffledValues[idx]
-    }))
-    
     shuffling.value = false
     playSound('shuffle')
   }, 1000)

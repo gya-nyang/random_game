@@ -20,7 +20,7 @@ export function usePhysicsSimulation(cardsRef) {
     // Initialize random velocities
     cardsRef.value = cardsRef.value.map(card => {
       const angle = Math.random() * Math.PI * 2
-      const speed = 1.8 + Math.random() * 1.5
+      const speed = (1.8 + Math.random() * 1.5) * 2
       return {
         ...card,
         vx: Math.cos(angle) * speed,
