@@ -1,4 +1,5 @@
 import { ref, onUnmounted } from 'vue'
+import { playSound } from '../utils/audio.js'
 
 export function useShakeSensor(onShakeCallback) {
   const hasSensorPermission = ref(null)
@@ -7,6 +8,9 @@ export function useShakeSensor(onShakeCallback) {
   const eventCount = ref(0)
   const currentSpeed = ref(0)
   const shakeThreshold = ref(2400)
+  const isCurrentlyShaking = ref(false)
+  let stopTimeout = null
+  let lastRattleTime = 0
 
   const lastX = ref(0)
   const lastY = ref(0)
@@ -34,7 +38,21 @@ export function useShakeSensor(onShakeCallback) {
         currentSpeed.value = Math.round(speed)
 
         if (speed > shakeThreshold.value) {
-          onShakeCallback()
+          if (!isCurrentlyShaking.value) {
+            isCurrentlyShaking.value = true
+          }
+          if (stopTimeout) clearTimeout(stopTimeout)
+
+          const now = Date.now()
+          if (now - lastRattleTime > 150) {
+            playSound('shake')
+            lastRattleTime = now
+          }
+
+          stopTimeout = setTimeout(() => {
+            isCurrentlyShaking.value = false
+            onShakeCallback()
+          }, 400)
         }
       }
 
@@ -75,6 +93,11 @@ export function useShakeSensor(onShakeCallback) {
 
   const stopShake = () => {
     window.removeEventListener('devicemotion', handleMotion)
+    if (stopTimeout) {
+      clearTimeout(stopTimeout)
+      stopTimeout = null
+    }
+    isCurrentlyShaking.value = false
     lastX.value = 0
     lastY.value = 0
     lastZ.value = 0
@@ -92,6 +115,7 @@ export function useShakeSensor(onShakeCallback) {
     eventCount,
     currentSpeed,
     shakeThreshold,
+    isCurrentlyShaking,
     requestSensorPermission,
     stopShake
   }

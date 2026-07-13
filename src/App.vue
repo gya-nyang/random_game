@@ -55,6 +55,7 @@ const {
   eventCount,
   currentSpeed,
   shakeThreshold,
+  isCurrentlyShaking,
   requestSensorPermission,
   stopShake
 } = useShakeSensor(triggerShuffle)
@@ -207,6 +208,7 @@ onUnmounted(() => {
     :has-motion-event="hasMotionEvent"
     :event-count="eventCount"
     :current-speed="currentSpeed"
+    :is-currently-shaking="isCurrentlyShaking"
     v-model:shake-threshold="shakeThreshold"
     @toggle-card="toggleCard"
     @trigger-shuffle="triggerShuffle"
