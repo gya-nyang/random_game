@@ -52,7 +52,7 @@ export function useShakeSensor(onShakeCallback) {
           stopTimeout = setTimeout(() => {
             isCurrentlyShaking.value = false
             onShakeCallback()
-          }, 400)
+          }, 150)
         }
       }
 

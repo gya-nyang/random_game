@@ -9,10 +9,6 @@ const props = defineProps({
   idx: {
     type: Number,
     required: true
-  },
-  tremble: {
-    type: Boolean,
-    default: false
   }
 })
 
@@ -35,7 +31,7 @@ const isWin = computed(() => {
     }"
     @click="$emit('click')"
   >
-    <div class="capsule-container" :class="{ 'is-opened': card.revealed, 'tremble': tremble }">
+    <div class="capsule-container" :class="{ 'is-opened': card.revealed }">
       <!-- 1. The Result Note (Inside capsule, rises up when opened) -->
       <div 
         class="capsule-paper"

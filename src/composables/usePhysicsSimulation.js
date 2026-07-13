@@ -1,7 +1,7 @@
 import { ref, onUnmounted } from 'vue'
 import { playSound } from '../utils/audio.js'
 
-export function usePhysicsSimulation(cardsRef) {
+export function usePhysicsSimulation(cardsRef, isCurrentlyShakingRef = ref(false)) {
   const isPhysicsActive = ref(false)
   let physicsFrameId = null
   let lastSoundTime = 0
@@ -14,7 +14,7 @@ export function usePhysicsSimulation(cardsRef) {
     }
   }
 
-  const startPhysicsSimulation = (duration = 1000) => {
+  const startPhysicsSimulation = () => {
     if (physicsFrameId) cancelAnimationFrame(physicsFrameId)
 
     // Initialize random velocities
@@ -31,17 +31,47 @@ export function usePhysicsSimulation(cardsRef) {
     })
 
     isPhysicsActive.value = true
-    const startTime = Date.now()
+    let isDecelerating = false
+    let decelerationStartTime = 0
+    const decelerationDuration = 600
 
     const updatePhysics = () => {
-      const elapsed = Date.now() - startTime
-      if (elapsed >= duration) {
-        isPhysicsActive.value = false
-        return
-      }
-
+      const activeShaking = isCurrentlyShakingRef.value
       const localCards = cardsRef.value.map(c => ({ ...c }))
       const minDist = 18 // Capsule diameter
+
+      if (activeShaking) {
+        isDecelerating = false
+        // Inject energy to cards that slow down while shaking
+        localCards.forEach(card => {
+          const speed = Math.sqrt(card.vx * card.vx + card.vy * card.vy)
+          if (speed < 3.0) {
+            const angle = Math.random() * Math.PI * 2
+            const push = (1.8 + Math.random() * 1.5) * 2
+            card.vx = Math.cos(angle) * push
+            card.vy = Math.sin(angle) * push
+          }
+        })
+      } else {
+        if (!isDecelerating) {
+          isDecelerating = true
+          decelerationStartTime = Date.now()
+        }
+
+        const elapsed = Date.now() - decelerationStartTime
+        if (elapsed >= decelerationDuration) {
+          isPhysicsActive.value = false
+          return
+        }
+
+        // Apply slowdown near the end of deceleration
+        if (elapsed > decelerationDuration * 0.4) {
+          localCards.forEach(card => {
+            card.vx *= 0.88
+            card.vy *= 0.88
+          })
+        }
+      }
 
       // 1. Move
       localCards.forEach(card => {
@@ -124,14 +154,6 @@ export function usePhysicsSimulation(cardsRef) {
           playBounceSound()
         }
       })
-
-      // 4. Slow down near the end
-      if (elapsed > duration * 0.75) {
-        localCards.forEach(card => {
-          card.vx *= 0.92
-          card.vy *= 0.92
-        })
-      }
 
       cardsRef.value = localCards
       physicsFrameId = requestAnimationFrame(updatePhysics)

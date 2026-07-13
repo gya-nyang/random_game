@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, watch } from 'vue'
 import { playSound, initAudio } from './utils/audio.js'
 import SetupView from './components/SetupView.vue'
 import PlayView from './components/PlayView.vue'
@@ -15,18 +15,18 @@ const isCooldown = ref(false)
 let cooldownTimer = null
 
 // 2. Composables
+const activeShakingState = ref(false)
+
 const { 
   isPhysicsActive, 
   startPhysicsSimulation, 
   stopPhysics 
-} = usePhysicsSimulation(cards)
+} = usePhysicsSimulation(cards, activeShakingState)
 
 const triggerShuffle = () => {
   if (shuffling.value || isCooldown.value) return
   
   shuffling.value = true
-  isCooldown.value = true
-  
   if (navigator.vibrate) navigator.vibrate(80)
   
   // Fold all notes face down
@@ -34,18 +34,6 @@ const triggerShuffle = () => {
   
   // Start physics simulation
   startPhysicsSimulation()
-  
-  // Shuffling finishes in 1000ms
-  setTimeout(() => {
-    shuffling.value = false
-    playSound('shuffle')
-  }, 1000)
-
-  // Hold sensor block for 1.5 seconds total
-  if (cooldownTimer) clearTimeout(cooldownTimer)
-  cooldownTimer = setTimeout(() => {
-    isCooldown.value = false
-  }, 1500)
 }
 
 const {
@@ -59,6 +47,31 @@ const {
   requestSensorPermission,
   stopShake
 } = useShakeSensor(triggerShuffle)
+
+// Watch shake sensor active state
+watch(isCurrentlyShaking, (shaking) => {
+  activeShakingState.value = shaking
+  if (shaking) {
+    if (shuffling.value || isCooldown.value) return
+    shuffling.value = true
+    if (navigator.vibrate) navigator.vibrate(80)
+    cards.value = cards.value.map(card => ({ ...card, revealed: false }))
+    startPhysicsSimulation()
+  }
+})
+
+// Watch physics active state to handle shuffle completion
+watch(isPhysicsActive, (active) => {
+  if (!active && shuffling.value) {
+    shuffling.value = false
+    playSound('shuffle')
+    isCooldown.value = true
+    if (cooldownTimer) clearTimeout(cooldownTimer)
+    cooldownTimer = setTimeout(() => {
+      isCooldown.value = false
+    }, 800)
+  }
+})
 
 // 3. Color Palettes (Folded Paper colors)
 const colorPalettes = [
