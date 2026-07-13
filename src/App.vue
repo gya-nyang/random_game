@@ -143,7 +143,9 @@ const startGame = async () => {
     return val === '' ? `제비 ${idx + 1}` : val
   })
 
-  cards.value = cleanedItems.map((val, idx) => {
+  const shuffledItems = shuffleArray(cleanedItems)
+
+  cards.value = shuffledItems.map((val, idx) => {
     const color = colorPalettes[idx % colorPalettes.length]
     return {
       id: idx,
