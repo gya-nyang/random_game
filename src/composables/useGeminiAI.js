@@ -98,7 +98,7 @@ export function useGeminiAI() {
             throw new Error('의미 있는 제비 항목을 추출하지 못했습니다. 형식을 맞춰 다시 입력해주세요. (예: 당첨 1, 꽝 3)')
           }
           
-          const limited = generated.slice(0, 16)
+          const limited = generated.slice(0, 20)
           onGenerated(limited)
           playSound('shuffle')
           
@@ -127,7 +127,7 @@ export function useGeminiAI() {
             parts: [{
               text: `사용자의 요청: "${prompt}"
 이 요청을 바탕으로 제비뽑기 게임에 사용할 제비 목록을 한국어로 생성해주세요.
-제비 개수는 최소 2개, 최대 16개여야 합니다.
+제비 개수는 최소 2개, 최대 20개여야 합니다.
 결과는 추가 설명 없이 오직 JSON string array 형식으로만 반환해 주세요. 마크다운(\`\`\`) 형식도 붙이지 말고 순수 배열 텍스트로만 반환해주세요.
 이모지를 적절하게 추가하여 예쁘게 만들어 주세요.
 예시 반환 형태: ["당첨 🎉", "꽝 😢", "꽝 😢", "커피 쏘기 ☕"]`
@@ -158,7 +158,7 @@ export function useGeminiAI() {
         throw new Error('배열 형식을 분석할 수 없습니다.')
       }
       
-      const limited = generated.slice(0, 16).map(item => String(item).slice(0, 20))
+      const limited = generated.slice(0, 20).map(item => String(item).slice(0, 20))
       onGenerated(limited)
       playSound('shuffle')
       
@@ -178,7 +178,7 @@ export function useGeminiAI() {
           if (generated.length < 2) {
             throw new Error('로컬 분석기로도 제비를 파싱하지 못했습니다.')
           }
-          const limited = generated.slice(0, 16)
+          const limited = generated.slice(0, 20)
           onGenerated(limited)
           playSound('shuffle')
           aiStatusMessage.value = `로컬 파서가 대신 ${limited.length}개의 제비를 생성했습니다.`

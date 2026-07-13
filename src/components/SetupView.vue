@@ -33,8 +33,8 @@ const localItems = computed({
 })
 
 const addItem = () => {
-  if (localItems.value.length >= 16) {
-    alert('제비는 최대 16개까지 생성할 수 있습니다.')
+  if (localItems.value.length >= 20) {
+    alert('제비는 최대 20개까지 생성할 수 있습니다.')
     return
   }
   const updated = [...localItems.value, '']
@@ -175,7 +175,7 @@ const generateWithAI = () => {
           <button 
             type="button" 
             class="btn-adjust" 
-            :disabled="localItems.length >= 16" 
+            :disabled="localItems.length >= 20" 
             @click="addItem"
             title="제비 추가"
           >

@@ -6,7 +6,7 @@ export function useShakeSensor(onShakeCallback) {
   const hasMotionEvent = ref(typeof window.DeviceMotionEvent !== 'undefined')
   const eventCount = ref(0)
   const currentSpeed = ref(0)
-  const shakeThreshold = ref(1200)
+  const shakeThreshold = ref(2400)
 
   const lastX = ref(0)
   const lastY = ref(0)

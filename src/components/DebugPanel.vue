@@ -84,7 +84,7 @@ const onThresholdInput = (event) => {
         @input="onThresholdInput"
         type="range" 
         min="300" 
-        max="2500" 
+        max="5000" 
         step="50" 
         class="sensitivity-slider"
       />
